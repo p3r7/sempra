@@ -35,6 +35,8 @@ function init()
   end
   param_initalizer.go()
 
+  norns.crow.loadscript('sempra_crow.lua')
+
   for i=1,16 do
     table.insert(sequences, {
                    vals = {64,64,64,64,64,64,64,64}
