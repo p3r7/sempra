@@ -136,9 +136,10 @@ _16n.init = function(cc_cb_fn)
       -- ask config dump via sysex
       _16n.request_sysex_config_dump(dev_16n)
 
-      break
+      return true
     end
   end
+  return false
 end
 
 

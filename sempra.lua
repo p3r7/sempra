@@ -4,7 +4,6 @@
 -- grid + 16n required
 -- explore polymeters
 
-m = midi.connect()
 midi_device = {}
 midi_device_names = {}
 g = grid.connect()
@@ -22,22 +21,26 @@ faders = {}
 
 
 function init()
-    _16n.init(faderbank_event)
-	for i = 1,#midi.vports do -- query all ports
-		midi_device[i] = midi.connect(i) -- connect each device
-		local full_name = 
-		table.insert(midi_device_names,i..": "..util.trim_string_to_width(midi_device[i].name,40)) -- register its name
-	end
-	param_initalizer.go()
+  local is16nBound = _16n.init(faderbank_event)
 
-	norns.crow.loadscript('sempra_crow.lua')
+  for i = 1,#midi.vports do -- query all ports
+    midi_device[i] = midi.connect(i) -- connect each device
+    -- midi out
+    local full_name =
+      table.insert(midi_device_names,i..": "..util.trim_string_to_width(midi_device[i].name,40)) -- register its name
+    -- midi CC in
+    if not is16nBound then
+      midi_device[i].event = cc_event
+    end
+  end
+  param_initalizer.go()
 
-    for i=1,16 do
-		table.insert(sequences, {
-			vals = {64,64,64,64,64,64,64,64}
-		,	trig_modes = {2,2,2,2,2,2,2,2}
-		,	repeats = {1,1,1,1,1,1,1,1}
-		,	len = 3
+  for i=1,16 do
+    table.insert(sequences, {
+                   vals = {64,64,64,64,64,64,64,64}
+                   ,	trig_modes = {2,2,2,2,2,2,2,2}
+                   ,	repeats = {1,1,1,1,1,1,1,1}
+                   ,	len = 3
 		})
 	end
     clock.run(stepper)
@@ -45,7 +48,7 @@ function init()
 end
 
 function as(n)
-	return sequences[params:get('as_'..util.clamp(n,1,2))]
+  return sequences[params:get('as_'..util.clamp(n,1,2))]
 end -- "active sequence" getter sugar
 
 function in_range(n, min, max)
@@ -79,7 +82,7 @@ function play_note(track,note,out,trigmode,len)
 		crow.ii.jf.mode(1)
 		crow.ii.jf.play_voice(out-21,note,velocity)
 	elseif	out == 28 then							-- jf poly
-		crow.ii.jf.mode(1) 
+		crow.ii.jf.mode(1)
 		crow.ii.jf.play_note(note,velocity)
 	elseif	in_range(out,29,30) then				-- crow cv/gate
 		local cv_channel = out==29 and 1 or 3
@@ -111,8 +114,8 @@ function stepper()
 		for t=1,2 do
 			-- if we're under the track's clock division, tick the clock counter.
 			if math.abs(params:get('division_'..t)) > params:get('clock_counter_'..t) then
-				params:delta('clock_counter_'..t,1) 
-			
+				params:delta('clock_counter_'..t,1)
+
 			else
 				-- otherwise, tick the sequence.
 				params:set('clock_counter_'..t,1)
@@ -123,7 +126,7 @@ function stepper()
 				end
 
 				-- if we're at the end of the sequence, check if there's one queued - if so, go to that one.
-				if (params:get('pos_'..t) > as(t).len) then 
+				if (params:get('pos_'..t) > as(t).len) then
 					params:set('pos_'..t,1)
 					if params:get('qd_'..t) ~= 0 then
 						params:set('as_'..t,params:get('qd_'..t))
@@ -131,7 +134,7 @@ function stepper()
 					end
 				end
 				if	(as(t).trig_modes[params:get('pos_'..t)] ~= 1 and	params:get('step_counter_'..t) == 1)
-				or	(as(t).trig_modes[params:get('pos_'..t)] == 3 and	params:get('step_counter_'..t) > 1)
+                                  or	(as(t).trig_modes[params:get('pos_'..t)] == 3 and	params:get('step_counter_'..t) > 1)
 				then
 					local note = as(t).vals[params:get('pos_'..t)]
 					note = util.linlin(0, 127, 0, params:get('range_'..t), note)
@@ -166,12 +169,12 @@ function faderbank_event(d)
 	value_change(seqnum,step,val)
 end
 
-function m.event(data)
-	local d = midi.to_msg(data)
-	local seqnum = 1
-	local step = 1
-	local val = 64
-	if d.type == 'cc' then 
+function cc_event(data)
+  local d = midi.to_msg(data)
+  local seqnum = 1
+  local step = 1
+  local val = 64
+  if d.type == 'cc' then
 		seqnum = (d.cc <= 8) and 1 or 2
 		step = d.cc % 9
 		val = d.val
